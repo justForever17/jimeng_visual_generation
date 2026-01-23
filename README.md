@@ -98,6 +98,18 @@ uvx jimeng_visual_generation
 
 - `task_id`（必需）：由 `generate_video` 返回的任务 ID
 
-## 许可证
+## 📄 开源协议 (License)
 
-MIT
+本项目基于 [MIT License](LICENSE) 开源。
+
+## 💖 赞助 (Sponsorship)
+
+维护开源项目不易，如果您觉得 jimeng_visual_generation 对您有帮助，欢迎请作者喝杯咖啡！
+
+<div align="center">
+
+| 平台 | 链接 | 支付方式 |
+| :--- | :--- | :--- |
+| **爱发电 (Afdian)** | [![Afdian](https://img.shields.io/badge/Afdian-支持我-946ce6?logo=afdian)](https://afdian.com/a/justforever17) | 微信, 支付宝 |
+
+</div>
