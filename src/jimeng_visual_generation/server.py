@@ -90,25 +90,25 @@ IMAGE_SIZE_MAP = {
 }
 
 class GenerateImageInput(BaseModel):
-    prompt: str = Field(..., description="Text prompt for image generation. Required for both Text-to-Image and Image-to-Image.")
-    model: Optional[str] = Field(default=DEFAULT_IMAGE_MODEL, description="Model ID (e.g., 'doubao-seedream-4.5').")
-    image_urls: Optional[List[str]] = Field(default=None, description="[Image-to-Image] List of reference images (URL, Base64, or local path). If provided, performs Image-to-Image generation.")
-    size: Optional[str] = Field(default="1:1", description="[IMPORTANT] Image size/ratio. Use keys like '1:1', '16:9', '4:3', '9:16' (auto-mapped to pixels) OR specific resolution like '2K', '4K'. DO NOT use 'ratio' parameter for images, usage 'size' instead.")
-    seed: Optional[int] = Field(default=-1, description="Random seed (-1 for random).")
-    response_format: Optional[str] = Field(default="url", description="Return format: 'url' (default) or 'b64_json'.")
+    prompt: str = Field(..., description="Text prompt describing the desired image. Required for both Text-to-Image and Image-to-Image.")
+    model: Optional[str] = Field(default=DEFAULT_IMAGE_MODEL, description="[CRITICAL] Leave this entirely EMPTY/OMITTED unless the user explicitly asks to use a custom Endpoint ID or model. The server already uses the configured default API Endpoint.")
+    image_urls: Optional[List[str]] = Field(default=None, description="List of reference images for Image-to-Image (URL, Base64, or local absolute path). Example: ['https://example.com/img.png']")
+    size: Optional[str] = Field(default="1:1", description="[CRITICAL] Image resolution/proportion. Accepted values exactly: '1:1', '16:9', '4:3', '9:16', '3:2', '2:3', '21:9', '2K', '4K'. DO NOT use 'ratio' parameter for images.")
+    seed: Optional[int] = Field(default=-1, description="Random seed for reproducibility (-1 for random).")
+    response_format: Optional[str] = Field(default="url", description="Format of the returned image: 'url' (recommended) or 'b64_json'.")
 
 @mcp.tool()
 async def generate_image(params: GenerateImageInput) -> str:
     """
     Generate images using Volcengine visual generation API.
     
+    CRITICAL INSTRUCTIONS FOR AI AGENTS:
+    - For image size, ONLY use the 'size' parameter (e.g., size="16:9"). DO NOT pass a 'ratio' or 'width'/'height' parameter.
+    - If the user provides a custom Endpoint ID (starts with 'ep-'), you MUST pass it into the 'model' parameter.
+    
     Capabilities:
     1. Text-to-Image: Provide 'prompt' and 'size'.
-    2. Image-to-Image: Provide 'prompt' AND 'image_urls'.
-    
-    IMPORTANT: 
-    - For image size, use the 'size' parameter (e.g., "16:9", "1:1").
-    - DO NOT use a 'ratio' parameter for images; 'ratio' is ONLY for videos.
+    2. Image-to-Image: Provide 'prompt' AND 'image_urls' (list containing 1 image string).
     """
     endpoint = "/images/generations"
     
@@ -144,28 +144,29 @@ async def generate_image(params: GenerateImageInput) -> str:
 # --- Video Generation ---
 
 class GenerateVideoInput(BaseModel):
-    prompt: Optional[str] = Field(default=None, description="Text prompt for video. Required for Text-to-Video. Optional for Image-to-Video.")
-    model: Optional[str] = Field(default=DEFAULT_VIDEO_MODEL, description="Model ID (e.g., 'doubao-seedance-1.5-pro-251215').")
-    image_urls: Optional[List[str]] = Field(default=None, description="[Image-to-Video] Input images. Provide 1 image for First Frame generation, or 2 images for First+Last Frame generation.")
-    ratio: Optional[str] = Field(default="16:9", description="Video aspect ratio: '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'.")
-    resolution: Optional[str] = Field(default="720p", description="Resolution: '720p', '1080p'.")
-    duration: Optional[int] = Field(default=5, description="Duration in seconds (2-12).")
-    seed: Optional[int] = Field(default=-1, description="Random seed (-1 for random).")
-    generate_audio: bool = Field(default=True, description="Generate audio (only for supported models like 1.5-pro).")
-    watermark: bool = Field(default=False, description="Add watermark.")
+    prompt: Optional[str] = Field(default=None, description="Text prompt for the video. Required for Text-to-Video. Optional/supplementary for Image-to-Video.")
+    model: Optional[str] = Field(default=DEFAULT_VIDEO_MODEL, description="[CRITICAL] Leave this entirely EMPTY/OMITTED unless the user explicitly asks to use a custom Endpoint ID/model. The server already uses the configured default API Endpoint.")
+    image_urls: Optional[List[str]] = Field(default=None, description="[Image-to-Video] Input images. Pro models: 1 image (First Frame) or 2 images (First+Last Frame). Lite models: 1-4 images (Multi-Image Fusion).")
+    ratio: Optional[str] = Field(default="16:9", description="[CRITICAL] Video aspect ratio. Accepted values exactly: '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'. DO NOT use 'size' parameter here.")
+    resolution: Optional[str] = Field(default="720p", description="Video resolution. Accepted values exactly: '720p', '1080p'.")
+    duration: Optional[int] = Field(default=5, description="Video duration in seconds. Supported range depends on model (usually 4-12s, default 5).")
+    seed: Optional[int] = Field(default=-1, description="Random seed for reproducibility (-1 for random).")
+    generate_audio: bool = Field(default=True, description="Whether to generate an audio track (only supported by Pro models).")
+    watermark: bool = Field(default=False, description="Whether to add a watermark to the generated video.")
 
 @mcp.tool()
 async def generate_video(params: GenerateVideoInput) -> str:
     """
-    Create a video generation task (Text-to-Video or Image-to-Video). Returns a Task ID.
+    Create a video generation task using Volcengine API. 
+    
+    CRITICAL INSTRUCTIONS FOR AI AGENTS:
+    - This tool ONLY submits the task. It returns a Task ID. You MUST subsequently call `get_video_task_result` in a loop (wait 5-10s between calls) to retrieve the actual video URL.
+    - Use 'ratio' for video proportions (e.g., ratio="16:9"). DO NOT use 'size' or 'width'/'height'.
+    - If user provides an Endpoint ID ('ep-...'), pass it to the 'model' parameter.
     
     Capabilities:
-    1. Text-to-Video: Provide 'prompt'.
-    2. Image-to-Video:
-       - [Pro Models]: Provide 1 image (First Frame) or 2 images (First+Last Frame).
-       - [Lite Models]: Provide 1-4 images for "Multi-Image Fusion" (treated as reference images).
-    
-    Use `get_video_task_result` with the returned Task ID to check progress.
+    1. Text-to-Video: Provide 'prompt' and 'ratio'.
+    2. Image-to-Video: Provide 'image_urls' array + optional 'prompt'.
     """
     endpoint = "/contents/generations/tasks"
     
@@ -220,27 +221,28 @@ class GetVideoResultInput(BaseModel):
 @mcp.tool()
 async def get_video_task_result(params: GetVideoResultInput) -> str:
     """
-    Query the status/result of a video generation task using Task ID.
+    Query the status of a video generation task using the Task ID returned by `generate_video`.
     
-    Status flow: ordered -> running -> succeeded / failed.
-    When 'succeeded', returns the video download URL.
+    CRITICAL INSTRUCTIONS FOR AI AGENTS:
+    - Video generation takes time (often 1-3 minutes).
+    - If the returned status is "ordered" or "running", DO NOT tell the user it failed. Ask the user to wait, and call this tool again after 10-15 seconds.
+    - Once the status is "succeeded", the response will contain the download URL.
     """
     endpoint = f"/contents/generations/tasks/{params.task_id}"
     try:
         response = await _make_api_request("GET", endpoint)
         status = response.get("status")
         
-        if status == "ordered":
-            content = response.get("content", {})
-            return f"Task Status: succeeded\nVideo URL: {content.get('video_url')}"
+        if status in ["ordered", "running"]:
+            return f"Task Status: {status}\nThe video is still generating. Please query again in a few seconds."
         elif status == "succeeded":
             content = response.get("content", {})
-            return f"Task Status: succeeded\nVideo URL: {content.get('video_url')}"
+            return f"Task Status: succeeded\nVideo URL: {content.get('video_url', 'No URL found')}"
         elif status == "failed":
             error = response.get("error", {})
             return f"Task Status: failed\nError: {error.get('message', 'Unknown error')}"
         else:
-            return f"Task Status: {status}"
+            return f"Task Status: {status}\nFull Response: {response}"
     except Exception as e:
         # Standardize return for CLI viewing
         return f"Error retrieving task result: {str(e)}"
