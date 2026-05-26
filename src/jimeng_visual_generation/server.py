@@ -15,7 +15,7 @@ load_dotenv()
 # Configuration
 VOLC_API_KEY = os.getenv("VOLC_API_KEY")
 DEFAULT_IMAGE_MODEL = os.getenv("VOLC_IMAGE_MODEL", "doubao-seedream-4.5")
-DEFAULT_VIDEO_MODEL = os.getenv("VOLC_VIDEO_MODEL", "doubao-seedance-1.5-pro-251215")
+DEFAULT_VIDEO_MODEL = os.getenv("VOLC_VIDEO_MODEL", "doubao-seedance-2.0")
 
 API_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
@@ -48,6 +48,55 @@ def _process_image_input(image_input: str) -> str:
             return f"data:{mime_type};base64,{encoded_string}"
             
     return image_input
+
+def _process_video_input(video_input: str) -> str:
+    """
+    Process video input string.
+    - If it's a URL or Base64 string, return as is.
+    - If it's a local file path, convert to Base64 data URI.
+    """
+    if video_input.startswith("http") or video_input.startswith("data:"):
+        return video_input
+        
+    file_path = Path(video_input)
+    if file_path.exists() and file_path.is_file():
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if not mime_type:
+            suffix = file_path.suffix.lower()
+            if suffix == '.mp4': mime_type = 'video/mp4'
+            elif suffix == '.webm': mime_type = 'video/webm'
+            else: mime_type = 'video/mp4'
+            
+        with open(file_path, "rb") as f:
+            encoded_string = base64.b64encode(f.read()).decode('utf-8')
+            return f"data:{mime_type};base64,{encoded_string}"
+            
+    return video_input
+
+def _process_audio_input(audio_input: str) -> str:
+    """
+    Process audio input string.
+    - If it's a URL or Base64 string, return as is.
+    - If it's a local file path, convert to Base64 data URI.
+    """
+    if audio_input.startswith("http") or audio_input.startswith("data:"):
+        return audio_input
+        
+    file_path = Path(audio_input)
+    if file_path.exists() and file_path.is_file():
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if not mime_type:
+            suffix = file_path.suffix.lower()
+            if suffix == '.mp3': mime_type = 'audio/mp3'
+            elif suffix == '.wav': mime_type = 'audio/wav'
+            elif suffix == '.m4a': mime_type = 'audio/x-m4a'
+            else: mime_type = 'audio/mpeg'
+            
+        with open(file_path, "rb") as f:
+            encoded_string = base64.b64encode(f.read()).decode('utf-8')
+            return f"data:{mime_type};base64,{encoded_string}"
+            
+    return audio_input
 
 async def _make_api_request(method: str, endpoint: str, json_data: Optional[Dict] = None, params: Optional[Dict] = None) -> Dict:
     """Helper to make API requests to Volcengine."""
@@ -146,13 +195,17 @@ async def generate_image(params: GenerateImageInput) -> str:
 class GenerateVideoInput(BaseModel):
     prompt: Optional[str] = Field(default=None, description="Text prompt for the video. Required for Text-to-Video. Optional/supplementary for Image-to-Video.")
     model: Optional[str] = Field(default=DEFAULT_VIDEO_MODEL, description="[CRITICAL] Leave this entirely EMPTY/OMITTED unless the user explicitly asks to use a custom Endpoint ID/model. The server already uses the configured default API Endpoint.")
-    image_urls: Optional[List[str]] = Field(default=None, description="[Image-to-Video] Input images. Pro models: 1 image (First Frame) or 2 images (First+Last Frame). Lite models: 1-4 images (Multi-Image Fusion).")
+    image_urls: Optional[List[str]] = Field(default=None, description="[Image-to-Video] Input images. Pro models: 1 image (First Frame) or 2 images (First+Last Frame). Lite models: 1-4 images. Seedance 2.0: Up to 9 images (Multi-Image reference).")
+    video_urls: Optional[List[str]] = Field(default=None, description="[Seedance 2.0] Reference video URLs or local absolute paths (up to 3, total duration ≤ 15s). Uses 'reference_video' role.")
+    audio_urls: Optional[List[str]] = Field(default=None, description="[Seedance 2.0] Reference audio URLs or local absolute paths (up to 3). Uses 'reference_audio' role.")
+    image_roles: Optional[List[str]] = Field(default=None, description="[Seedance 2.0] Explicit roles matching 'image_urls' order. Values: 'reference_image', 'first_frame', 'last_frame'. If omitted, roles are auto-assigned.")
     ratio: Optional[str] = Field(default="16:9", description="[CRITICAL] Video aspect ratio. Accepted values exactly: '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'. DO NOT use 'size' parameter here.")
     resolution: Optional[str] = Field(default="720p", description="Video resolution. Accepted values exactly: '720p', '1080p'.")
-    duration: Optional[int] = Field(default=5, description="Video duration in seconds. Supported range depends on model (usually 4-12s, default 5).")
+    duration: Optional[int] = Field(default=5, description="Video duration in seconds. Supported range depends on model (Seedance 2.0 supports 4-15s, default 5).")
     seed: Optional[int] = Field(default=-1, description="Random seed for reproducibility (-1 for random).")
     generate_audio: bool = Field(default=True, description="Whether to generate an audio track (only supported by Pro models).")
     watermark: bool = Field(default=False, description="Whether to add a watermark to the generated video.")
+    return_last_frame: bool = Field(default=False, description="[Seedance 2.0] If true, returns the last frame of the generated video as an image URL.")
 
 @mcp.tool()
 async def generate_video(params: GenerateVideoInput) -> str:
@@ -167,33 +220,75 @@ async def generate_video(params: GenerateVideoInput) -> str:
     Capabilities:
     1. Text-to-Video: Provide 'prompt' and 'ratio'.
     2. Image-to-Video: Provide 'image_urls' array + optional 'prompt'.
+    3. Multi-Modal (Seedance 2.0): Mix 'image_urls' (up to 9), 'video_urls' (up to 3), and 'audio_urls' (up to 3).
     """
     endpoint = "/contents/generations/tasks"
     
     content_list = []
     if params.prompt:
         content_list.append({"type": "text", "text": params.prompt})
+        
+    # Detect if we are using Seedance 2.0 / super-seed2 (or manually if user specified videos/audios)
+    is_v2 = "2.0" in (params.model or "").lower() or "seedance-2" in (params.model or "").lower() or params.video_urls or params.audio_urls
     
     if params.image_urls:
-        processed_urls = [_process_image_input(url) for url in params.image_urls]
+        processed_images = [_process_image_input(url) for url in params.image_urls]
         
-        # Detect model type for role assignment
-        # Lite models (e.g., doubao-seedance-1.0-lite-i2v) use 'reference_image' for fusion (1-4 images)
-        is_lite = "lite" in (params.model or "").lower()
-        
-        if is_lite:
-            # Lite / Reference Mode: All images are references
-            for url in processed_urls:
-                content_list.append({"type": "image_url", "image_url": {"url": url}, "role": "reference_image"})
+        if is_v2:
+            # Seedance 2.0 Multi-image Reference Mode (up to 9 images)
+            for i, url in enumerate(processed_images):
+                role = "reference_image"
+                if params.image_roles and i < len(params.image_roles):
+                    role = params.image_roles[i]
+                else:
+                    # Auto assign: 1 image -> first_frame, 2 images -> first/last, >2 -> reference
+                    if len(processed_images) == 1:
+                        role = "first_frame"
+                    elif len(processed_images) == 2:
+                        role = "first_frame" if i == 0 else "last_frame"
+                content_list.append({
+                    "type": "image_url",
+                    "image_url": {"url": url},
+                    "role": role
+                })
         else:
-            # Pro / Standard Mode: First/Last Frame Logic
-            if len(processed_urls) == 1:
-                content_list.append({"type": "image_url", "image_url": {"url": processed_urls[0]}, "role": "first_frame"})
-            elif len(processed_urls) == 2:
-                content_list.append({"type": "image_url", "image_url": {"url": processed_urls[0]}, "role": "first_frame"})
-                content_list.append({"type": "image_url", "image_url": {"url": processed_urls[1]}, "role": "last_frame"})
+            # Standard Pro / Lite Mode
+            is_lite = "lite" in (params.model or "").lower()
+            if is_lite:
+                for url in processed_images:
+                    content_list.append({"type": "image_url", "image_url": {"url": url}, "role": "reference_image"})
             else:
-                return "Error: Pro models only support 1 (First Frame) or 2 (First+Last Frame) images. Use a 'lite' model for multi-image fusion (1-4 images)."
+                if len(processed_images) == 1:
+                    content_list.append({"type": "image_url", "image_url": {"url": processed_images[0]}, "role": "first_frame"})
+                elif len(processed_images) == 2:
+                    content_list.append({"type": "image_url", "image_url": {"url": processed_images[0]}, "role": "first_frame"})
+                    content_list.append({"type": "image_url", "image_url": {"url": processed_images[1]}, "role": "last_frame"})
+                else:
+                    return "Error: Pro models only support 1 (First Frame) or 2 (First+Last Frame) images. Use a 'lite' or '2.0' model for multi-image reference."
+
+    # Process reference videos (Seedance 2.0)
+    if params.video_urls:
+        if not is_v2:
+            return "Error: Reference videos are only supported by Seedance 2.0 models."
+        processed_videos = [_process_video_input(url) for url in params.video_urls]
+        for url in processed_videos:
+            content_list.append({
+                "type": "video_url",
+                "video_url": {"url": url},
+                "role": "reference_video"
+            })
+            
+    # Process reference audios (Seedance 2.0)
+    if params.audio_urls:
+        if not is_v2:
+            return "Error: Reference audios are only supported by Seedance 2.0 models."
+        processed_audios = [_process_audio_input(url) for url in params.audio_urls]
+        for url in processed_audios:
+            content_list.append({
+                "type": "audio_url",
+                "audio_url": {"url": url},
+                "role": "reference_audio"
+            })
 
     payload = {
         "model": params.model,
@@ -206,6 +301,9 @@ async def generate_video(params: GenerateVideoInput) -> str:
         "generate_audio": params.generate_audio
     }
     
+    if params.return_last_frame:
+        payload["return_last_frame"] = params.return_last_frame
+        
     try:
         response = await _make_api_request("POST", endpoint, json_data=payload)
         task_id = response.get("id")
@@ -237,7 +335,13 @@ async def get_video_task_result(params: GetVideoResultInput) -> str:
             return f"Task Status: {status}\nThe video is still generating. Please query again in a few seconds."
         elif status == "succeeded":
             content = response.get("content", {})
-            return f"Task Status: succeeded\nVideo URL: {content.get('video_url', 'No URL found')}"
+            video_url = content.get('video_url', 'No URL found')
+            last_frame_url = content.get('last_frame_url')
+            
+            output_str = f"Task Status: succeeded\nVideo URL: {video_url}"
+            if last_frame_url:
+                output_str += f"\nLast Frame URL: {last_frame_url}"
+            return output_str
         elif status == "failed":
             error = response.get("error", {})
             return f"Task Status: failed\nError: {error.get('message', 'Unknown error')}"
