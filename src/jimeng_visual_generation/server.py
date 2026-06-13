@@ -14,8 +14,8 @@ load_dotenv()
 
 # Configuration
 VOLC_API_KEY = os.getenv("VOLC_API_KEY")
-DEFAULT_IMAGE_MODEL = os.getenv("VOLC_IMAGE_MODEL", "doubao-seedream-4.5")
-DEFAULT_VIDEO_MODEL = os.getenv("VOLC_VIDEO_MODEL", "doubao-seedance-2.0")
+DEFAULT_IMAGE_MODEL = os.getenv("VOLC_IMAGE_MODEL", "doubao-seedream-4-5-251128")
+DEFAULT_VIDEO_MODEL = os.getenv("VOLC_VIDEO_MODEL", "doubao-seedance-2-0-260128")
 
 API_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
@@ -228,8 +228,20 @@ async def generate_video(params: GenerateVideoInput) -> str:
     if params.prompt:
         content_list.append({"type": "text", "text": params.prompt})
         
-    # Detect if we are using Seedance 2.0 / super-seed2 (or manually if user specified videos/audios)
-    is_v2 = "2.0" in (params.model or "").lower() or "seedance-2" in (params.model or "").lower() or params.video_urls or params.audio_urls
+    # Detect if we are using Seedance 2.0
+    is_v2 = (
+        "2.0" in (params.model or "").lower() 
+        or "2-0" in (params.model or "").lower()
+        or "seedance-2" in (params.model or "").lower() 
+        or "2.0" in DEFAULT_VIDEO_MODEL.lower() 
+        or "2-0" in DEFAULT_VIDEO_MODEL.lower()
+        or "seedance-2" in DEFAULT_VIDEO_MODEL.lower()
+        or bool(params.video_urls) 
+        or bool(params.audio_urls)
+        or bool(params.image_roles)
+        or params.return_last_frame
+        or (params.image_urls and len(params.image_urls) > 2)
+    )
     
     if params.image_urls:
         processed_images = [_process_image_input(url) for url in params.image_urls]

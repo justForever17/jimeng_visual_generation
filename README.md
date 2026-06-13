@@ -45,8 +45,8 @@ uvx jimeng_visual_generation
       "args": ["jimeng_visual_generation"],
       "env": {
         "VOLC_API_KEY": "your_volcengine_api_key_here",
-        "VOLC_IMAGE_MODEL": "doubao-seedream-4.5",
-        "VOLC_VIDEO_MODEL": "doubao-seedance-1.5-pro-251215"
+        "VOLC_IMAGE_MODEL": "doubao-seedream-4-5-251128",
+        "VOLC_VIDEO_MODEL": "doubao-seedance-1-0-pro-fast-251015"
       }
     }
   }
@@ -58,8 +58,8 @@ uvx jimeng_visual_generation
 | 变量 | 是否必需 | 描述 |
 |------|----------|------|
 | `VOLC_API_KEY` | ✅ 必需 | 你的 Volcengine API Key |
-| `VOLC_IMAGE_MODEL` | 可选 | 图像模型 ID（默认：doubao-seedream-4.5） |
-| `VOLC_VIDEO_MODEL` | 可选 | 视频模型 ID（默认：doubao-seedance-1.5-pro） |
+| `VOLC_IMAGE_MODEL` | 可选 | 图像模型 ID（默认：`doubao-seedream-4-5-251128`） |
+| `VOLC_VIDEO_MODEL` | 可选 | 视频模型 ID（默认：`doubao-seedance-2.0`） |
 
 ## 可用工具
 
@@ -71,24 +71,29 @@ uvx jimeng_visual_generation
 
 - `prompt`（必需）：描述目标图像的文本
 - `image_urls`（可选）：参考图像列表（支持 URL、Base64 或本地文件路径）
-- `model`（可选）：使用的模型 ID
-- `size`（可选）：图像尺寸（例如："2048x2048"、"2K"、"4K"）
+- `model`（可选）：使用的模型 ID 或 Endpoint ID
+- `size`（可选）：图像尺寸比例（支持 "1:1", "16:9", "2K", "4K" 等，禁止使用 `ratio`）
 
 ### `generate_video`
 
-创建视频生成任务。根据输入自动判断模式：
+创建视频生成任务。支持多种生成模式（包括最新的 Seedance 2.0 多模态输入）：
 
-- 无图像 → 文本生成视频（T2V）
-- 1 张图像 → 首帧 I2V
-- 2 张图像 → 首帧 & 末帧 I2V
+- **文本生成视频 (T2V)**：不提供图像、视频、音频输入，只提供 `prompt`。
+- **首帧/尾帧生视频 (I2V)**：提供 1-2 张图像。
+- **多模态参考生视频 (Seedance 2.0)**：可混合提供图像、参考视频和参考音频（支持本地文件自动转换）。
 
 **参数：**
 
-- `prompt`（可选）：视频描述的文本
-- `image_urls`（可选）：输入图像（支持 URL、Base64 或本地文件路径）
-- `model`（可选）：使用的模型 ID
-- `ratio`（可选）：宽高比（例如："16:9"、"9:16"）
-- `duration`（可选）：视频时长（秒）
+- `prompt`（可选）：视频描述的文本提示词
+- `image_urls`（可选）：输入参考图像列表（支持 URL、Base64 或本地文件路径，最多 9 张）
+- `video_urls`（可选）：参考视频列表（支持 URL 或本地文件路径，最多 3 个，总时长 ≤ 15s）
+- `audio_urls`（可选）：参考音频列表（支持 URL 或本地文件路径，最多 3 个）
+- `image_roles`（可选）：为 `image_urls` 显式指定的角色列表（例如 `["reference_image", "first_frame"]`）
+- `model`（可选）：使用的模型 ID 或 Endpoint ID
+- `ratio`（可选）：宽高比（例如："16:9"、"9:16"，禁止在图片生成里使用该参数）
+- `resolution`（可选）：分辨率（"720p" 或 "1080p"）
+- `duration`（可选）：视频时长（秒，支持 4-15s）
+- `return_last_frame`（可选）：是否返回生成的视频最后一帧图像 URL，适用于连续生成
 
 ### `get_video_task_result`
 
