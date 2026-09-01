@@ -14,8 +14,8 @@ load_dotenv()
 
 # Configuration
 VOLC_API_KEY = os.getenv("VOLC_API_KEY")
-DEFAULT_IMAGE_MODEL = os.getenv("VOLC_IMAGE_MODEL", "doubao-seedream-4-5-251128")
-DEFAULT_VIDEO_MODEL = os.getenv("VOLC_VIDEO_MODEL", "doubao-seedance-2-0-260128")
+DEFAULT_IMAGE_MODEL = os.getenv("VOLC_IMAGE_MODEL", "doubao-seedream-5-0-pro-260628")
+DEFAULT_VIDEO_MODEL = os.getenv("VOLC_VIDEO_MODEL", "doubao-seedance-2-5-260628")
 
 API_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 
@@ -195,17 +195,17 @@ async def generate_image(params: GenerateImageInput) -> str:
 class GenerateVideoInput(BaseModel):
     prompt: Optional[str] = Field(default=None, description="Text prompt for the video. Required for Text-to-Video. Optional/supplementary for Image-to-Video.")
     model: Optional[str] = Field(default=DEFAULT_VIDEO_MODEL, description="[CRITICAL] Leave this entirely EMPTY/OMITTED unless the user explicitly asks to use a custom Endpoint ID/model. The server already uses the configured default API Endpoint.")
-    image_urls: Optional[List[str]] = Field(default=None, description="[Image-to-Video] Input images. Pro models: 1 image (First Frame) or 2 images (First+Last Frame). Lite models: 1-4 images. Seedance 2.0: Up to 9 images (Multi-Image reference).")
-    video_urls: Optional[List[str]] = Field(default=None, description="[Seedance 2.0] Reference video URLs or local absolute paths (up to 3, total duration ≤ 15s). Uses 'reference_video' role.")
-    audio_urls: Optional[List[str]] = Field(default=None, description="[Seedance 2.0] Reference audio URLs or local absolute paths (up to 3). Uses 'reference_audio' role.")
-    image_roles: Optional[List[str]] = Field(default=None, description="[Seedance 2.0] Explicit roles matching 'image_urls' order. Values: 'reference_image', 'first_frame', 'last_frame'. If omitted, roles are auto-assigned.")
+    image_urls: Optional[List[str]] = Field(default=None, description="[Image-to-Video] Input images. Pro models: 1 image (First Frame) or 2 images (First+Last Frame). Lite models: 1-4 images. Seedance 2.0/2.5: Up to 9 images (Multi-Image reference).")
+    video_urls: Optional[List[str]] = Field(default=None, description="[Seedance 2.0/2.5] Reference video URLs or local absolute paths (up to 3, total duration ≤ 30s for 2.5, ≤ 15s for 2.0). Uses 'reference_video' role.")
+    audio_urls: Optional[List[str]] = Field(default=None, description="[Seedance 2.0/2.5] Reference audio URLs or local absolute paths (up to 3). Uses 'reference_audio' role.")
+    image_roles: Optional[List[str]] = Field(default=None, description="[Seedance 2.0/2.5] Explicit roles matching 'image_urls' order. Values: 'reference_image', 'first_frame', 'last_frame'. If omitted, roles are auto-assigned.")
     ratio: Optional[str] = Field(default="16:9", description="[CRITICAL] Video aspect ratio. Accepted values exactly: '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'. DO NOT use 'size' parameter here.")
-    resolution: Optional[str] = Field(default="720p", description="Video resolution. Accepted values exactly: '720p', '1080p'.")
-    duration: Optional[int] = Field(default=5, description="Video duration in seconds. Supported range depends on model (Seedance 2.0 supports 4-15s, default 5).")
+    resolution: Optional[str] = Field(default="720p", description="Video resolution. Accepted values exactly: '720p', '1080p'. (Note: mini & fast models support up to 720p; 2.5 & standard 2.0 support 1080p)")
+    duration: Optional[int] = Field(default=5, description="Video duration in seconds. Supported range depends on model (Seedance 2.5 supports 4-30s, Seedance 2.0/2.0-mini supports 4-15s, default 5).")
     seed: Optional[int] = Field(default=-1, description="Random seed for reproducibility (-1 for random).")
-    generate_audio: bool = Field(default=True, description="Whether to generate an audio track (only supported by Pro models).")
+    generate_audio: bool = Field(default=True, description="Whether to generate an audio track (only supported by Pro/2.0/2.5 models).")
     watermark: bool = Field(default=False, description="Whether to add a watermark to the generated video.")
-    return_last_frame: bool = Field(default=False, description="[Seedance 2.0] If true, returns the last frame of the generated video as an image URL.")
+    return_last_frame: bool = Field(default=False, description="[Seedance 2.0/2.5] If true, returns the last frame of the generated video as an image URL.")
 
 @mcp.tool()
 async def generate_video(params: GenerateVideoInput) -> str:
@@ -215,12 +215,17 @@ async def generate_video(params: GenerateVideoInput) -> str:
     CRITICAL INSTRUCTIONS FOR AI AGENTS:
     - This tool ONLY submits the task. It returns a Task ID. You MUST subsequently call `get_video_task_result` in a loop (wait 5-10s between calls) to retrieve the actual video URL.
     - Use 'ratio' for video proportions (e.g., ratio="16:9"). DO NOT use 'size' or 'width'/'height'.
+    - Local Files: You can directly pass local file absolute paths (e.g. 'C:/images/pic.png', '/tmp/video.mp4') in `image_urls`, `video_urls`, or `audio_urls`. The server automatically reads and encodes them to Base64 data URIs.
     - If user provides an Endpoint ID ('ep-...'), pass it to the 'model' parameter.
     
-    Capabilities:
-    1. Text-to-Video: Provide 'prompt' and 'ratio'.
-    2. Image-to-Video: Provide 'image_urls' array + optional 'prompt'.
-    3. Multi-Modal (Seedance 2.0): Mix 'image_urls' (up to 9), 'video_urls' (up to 3), and 'audio_urls' (up to 3).
+    Capabilities & Generation Modes:
+    1. Text-to-Video (T2V): Provide 'prompt' and 'ratio'.
+    2. First Frame I2V: Provide 1 image in 'image_urls' (automatically assigned as 'first_frame').
+    3. First + Last Frame I2V: Provide 2 images in 'image_urls' (automatically assigned as 'first_frame' and 'last_frame').
+    4. Multi-Modal Reference (Seedance 2.0 / 2.5 / mini): 
+       - Pass up to 9 images in 'image_urls', up to 3 videos in 'video_urls', and up to 3 audios in 'audio_urls'.
+       - In your 'prompt', you can reference them using `@image_file_1`, `@image_file_2`, `@video_file_1`, `@audio_file_1`.
+    5. Long Narrative (Seedance 2.5): Supports up to 30s video duration. (Seedance 2.0 / 2.0-mini supports up to 15s).
     """
     endpoint = "/contents/generations/tasks"
     
@@ -228,13 +233,19 @@ async def generate_video(params: GenerateVideoInput) -> str:
     if params.prompt:
         content_list.append({"type": "text", "text": params.prompt})
         
-    # Detect if we are using Seedance 2.0
+    # Detect if we are using Seedance 2.0 / 2.5 / mini / multimodal models
     is_v2 = (
-        "2.0" in (params.model or "").lower() 
+        "2.5" in (params.model or "").lower()
+        or "2-5" in (params.model or "").lower()
+        or "2.0" in (params.model or "").lower() 
         or "2-0" in (params.model or "").lower()
+        or "mini" in (params.model or "").lower()
         or "seedance-2" in (params.model or "").lower() 
+        or "2.5" in DEFAULT_VIDEO_MODEL.lower()
+        or "2-5" in DEFAULT_VIDEO_MODEL.lower()
         or "2.0" in DEFAULT_VIDEO_MODEL.lower() 
         or "2-0" in DEFAULT_VIDEO_MODEL.lower()
+        or "mini" in DEFAULT_VIDEO_MODEL.lower()
         or "seedance-2" in DEFAULT_VIDEO_MODEL.lower()
         or bool(params.video_urls) 
         or bool(params.audio_urls)
@@ -247,7 +258,7 @@ async def generate_video(params: GenerateVideoInput) -> str:
         processed_images = [_process_image_input(url) for url in params.image_urls]
         
         if is_v2:
-            # Seedance 2.0 Multi-image Reference Mode (up to 9 images)
+            # Seedance 2.0 / 2.5 Multi-image Reference Mode (up to 9 images)
             for i, url in enumerate(processed_images):
                 role = "reference_image"
                 if params.image_roles and i < len(params.image_roles):
@@ -276,12 +287,12 @@ async def generate_video(params: GenerateVideoInput) -> str:
                     content_list.append({"type": "image_url", "image_url": {"url": processed_images[0]}, "role": "first_frame"})
                     content_list.append({"type": "image_url", "image_url": {"url": processed_images[1]}, "role": "last_frame"})
                 else:
-                    return "Error: Pro models only support 1 (First Frame) or 2 (First+Last Frame) images. Use a 'lite' or '2.0' model for multi-image reference."
+                    return "Error: Pro models only support 1 (First Frame) or 2 (First+Last Frame) images. Use a 'lite' or '2.0'/'2.5' model for multi-image reference."
 
-    # Process reference videos (Seedance 2.0)
+    # Process reference videos (Seedance 2.0 / 2.5)
     if params.video_urls:
         if not is_v2:
-            return "Error: Reference videos are only supported by Seedance 2.0 models."
+            return "Error: Reference videos are only supported by Seedance 2.0 / 2.5 models."
         processed_videos = [_process_video_input(url) for url in params.video_urls]
         for url in processed_videos:
             content_list.append({
@@ -290,10 +301,10 @@ async def generate_video(params: GenerateVideoInput) -> str:
                 "role": "reference_video"
             })
             
-    # Process reference audios (Seedance 2.0)
+    # Process reference audios (Seedance 2.0 / 2.5)
     if params.audio_urls:
         if not is_v2:
-            return "Error: Reference audios are only supported by Seedance 2.0 models."
+            return "Error: Reference audios are only supported by Seedance 2.0 / 2.5 models."
         processed_audios = [_process_audio_input(url) for url in params.audio_urls]
         for url in processed_audios:
             content_list.append({
@@ -301,6 +312,23 @@ async def generate_video(params: GenerateVideoInput) -> str:
                 "audio_url": {"url": url},
                 "role": "reference_audio"
             })
+
+    # Validate duration per model series
+    if params.duration:
+        target_model = (params.model or DEFAULT_VIDEO_MODEL).lower()
+        if "2.5" in target_model or "2-5" in target_model:
+            max_dur = 30
+        elif "2.0" in target_model or "2-0" in target_model or "mini" in target_model or "fast" in target_model:
+            max_dur = 15
+        elif "1.5" in target_model or "1-5" in target_model or "1-0-pro" in target_model or "1.0-pro" in target_model:
+            max_dur = 12
+        elif "lite" in target_model:
+            max_dur = 10
+        else:
+            max_dur = 30  # Default fallback for custom endpoints
+
+        if params.duration > max_dur:
+            return f"Error: Model '{params.model or DEFAULT_VIDEO_MODEL}' only supports video duration up to {max_dur}s (requested {params.duration}s). For up to 30s video, please use 'doubao-seedance-2-5-260628', or reduce 'duration' to <= {max_dur}."
 
     payload = {
         "model": params.model,

@@ -1,0 +1,154 @@
+{
+  "version": "2026-09-01",
+  "provider": "Volcengine Ark (火山方舟)",
+  "models": {
+    "image_generation": [
+      {
+        "model_id": "doubao-seedream-5-0-pro-260628",
+        "name": "Doubao-Seedream-5.0-pro",
+        "type": "Text-to-Image / Image-to-Image / Precision Editing",
+        "resolutions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9", "2K", "4K"],
+        "concurrency_limit": 10,
+        "ipm": 500,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["image"],
+        "description": "最新一代豆包专业图像大模型，精准图像编辑，解锁图层自由，画质细节与参考一致性行业顶尖。"
+      },
+      {
+        "model_id": "doubao-seedream-5-0-260128",
+        "name": "Doubao-Seedream-5.0",
+        "type": "Text-to-Image / Image-to-Image",
+        "resolutions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9", "2K", "4K"],
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["image"],
+        "description": "豆包5.0图像大模型，在语义理解、画质细节、参考一致性上表现出色。"
+      },
+      {
+        "model_id": "doubao-seedream-5-0-lite-260128",
+        "name": "Doubao-Seedream-5.0-lite",
+        "type": "Text-to-Image / Image-to-Image",
+        "resolutions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9", "2K", "4K"],
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["image"],
+        "description": "5.0轻量化图像生成模型，具备更高的性价比与生成速度。"
+      },
+      {
+        "model_id": "doubao-seedream-4-5-251128",
+        "name": "Doubao-Seedream-4.5",
+        "type": "Text-to-Image / Image-to-Image",
+        "resolutions": ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9", "2K", "4K"],
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["image"],
+        "description": "稳定成熟的4.5版图像生成大模型，广泛用于图像设计与编辑。"
+      },
+      {
+        "model_id": "doubao-seedream-4-0-250828",
+        "name": "Doubao-Seedream-4.0",
+        "type": "Text-to-Image / Image-to-Image",
+        "resolutions": ["1:1", "16:9", "9:16", "4:3", "3:4", "2K"],
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["image"],
+        "description": "4.0版基础图像大模型。"
+      }
+    ],
+    "video_generation": [
+      {
+        "model_id": "doubao-seedance-2-5-260628",
+        "name": "Doubao-Seedance-2.5",
+        "type": "Multimodal Video Generation (Long Narrative)",
+        "resolutions": ["480P", "720P", "1080P"],
+        "fps": 24,
+        "concurrency_limit": 10,
+        "rpm": 600,
+        "input_modalities": ["text", "image", "video", "audio"],
+        "output_modalities": ["video"],
+        "max_duration_seconds": 30,
+        "features": ["30s Long Narrative", "Multimodal reference (up to 9 images, 3 videos, 3 audios)", "Video Extension", "Video Editing", "return_last_frame"],
+        "description": "最新2.5代旗舰视频大模型，支持30秒超长叙事与全模态参考扩容，视听同步及画面连贯性极佳。"
+      },
+      {
+        "model_id": "doubao-seedance-2-0-mini-260615",
+        "name": "Doubao-Seedance-2.0-mini",
+        "type": "Multimodal Video Generation (High Cost-Efficiency)",
+        "resolutions": ["480P", "720P"],
+        "fps": 24,
+        "concurrency_limit": 10,
+        "rpm": 600,
+        "input_modalities": ["text", "image", "video", "audio"],
+        "output_modalities": ["video"],
+        "max_duration_seconds": 15,
+        "features": ["Multimodal reference (up to 9 images, 3 videos, 3 audios)", "Video Extension", "Video Editing", "return_last_frame", "Cost-effective"],
+        "description": "音视图文全参考高性价比视频模型，速度快、并发高。仅支持480P与720P。"
+      },
+      {
+        "model_id": "doubao-seedance-2-0-260128",
+        "name": "Doubao-Seedance-2.0",
+        "type": "Multimodal Video Generation",
+        "resolutions": ["480P", "720P", "1080P"],
+        "fps": 24,
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image", "video", "audio"],
+        "output_modalities": ["video"],
+        "max_duration_seconds": 15,
+        "features": ["Multimodal reference (up to 9 images, 3 videos, 3 audios)", "Video Extension", "Video Editing", "return_last_frame"],
+        "description": "2.0视频生成模型，超强参考一致性与视听同步，支持完整的4模态融合与长视频延长。"
+      },
+      {
+        "model_id": "doubao-seedance-2-0-fast-260128",
+        "name": "Doubao-Seedance-2.0-fast",
+        "type": "Multimodal Video Generation (Fast)",
+        "resolutions": ["480P", "720P"],
+        "fps": 24,
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image", "video", "audio"],
+        "output_modalities": ["video"],
+        "max_duration_seconds": 15,
+        "features": ["Multimodal reference (up to 9 images, 3 videos, 3 audios)", "Video Extension", "Video Editing", "return_last_frame"],
+        "description": "2.0极速版模型，出片速度极快。不支持1080P分辨率。"
+      },
+      {
+        "model_id": "doubao-seedance-1-5-pro-251215",
+        "name": "Doubao-Seedance-1.5-pro",
+        "type": "Image/Text-to-Video",
+        "resolutions": ["720P", "1080P"],
+        "fps": 24,
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["video"],
+        "max_duration_seconds": 12,
+        "features": ["First frame I2V", "First+Last frame I2V", "Audio generation (optional)"],
+        "description": "1.5专业版视频模型，具备高动态范围及声效合成能力。"
+      },
+      {
+        "model_id": "doubao-seedance-1-0-pro-fast-251015",
+        "name": "Doubao-Seedance-1.0-pro-fast",
+        "type": "Image/Text-to-Video (Fast)",
+        "resolutions": ["720P", "1080P"],
+        "fps": 24,
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["video"],
+        "max_duration_seconds": 12,
+        "features": ["First frame I2V", "First+Last frame I2V"],
+        "description": "1.0极速专业版视频模型，响应速度快，支持高质量视频输出。"
+      },
+      {
+        "model_id": "doubao-seedance-1-0-lite",
+        "name": "Doubao-Seedance-1.0-lite",
+        "type": "Image/Text-to-Video (Lite)",
+        "resolutions": ["480P", "720P"],
+        "fps": 24,
+        "concurrency_limit": 3,
+        "input_modalities": ["text", "image"],
+        "output_modalities": ["video"],
+        "max_duration_seconds": 10,
+        "features": ["Multi-image reference fusion (1-4 images)"],
+        "description": "1.0轻量版视频大模型，主打高性价比和快速生成。"
+      }
+    ]
+  }
+}
